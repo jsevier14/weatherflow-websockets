@@ -1,0 +1,107 @@
+<!--
+   index.html
+   
+   Copyright 2025  <jsevier14@raspberry>
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.
+   
+   
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tempest Live Weather</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f4f4f4;
+      color: #333;
+      text-align: center;
+      padding-top: 50px;
+    }
+    #weather {
+      font-size: 2em;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jeff's Live Weather Second Attempt</h1>
+  <div id="weather">Connecting to WebSocket...</div>
+
+  <script>
+    const deviceId = 34590;
+    const token = "82ec0a19-0292-47b2-a271-7598afb32a7e";
+
+    function displayError(message) {
+      document.getElementById('weather').textContent = message;
+    }
+
+    function displayWeather(tempC, windSpeed, humidity, pressure) {
+      document.getElementById('weather').innerHTML = `
+        🌡️ Temp: ${tempC.toFixed(1)}°C<br>
+        💨 Wind: ${windSpeed.toFixed(1)} m/s<br>
+        💧 Humidity: ${humidity}%<br>
+        📈 Pressure: ${pressure} mb
+      `;
+    }
+
+    const socket = new WebSocket("wss://ws.weatherflow.com/swd/data");
+
+    socket.addEventListener("open", () => {
+      console.log("WebSocket connection opened.");
+      socket.send(JSON.stringify({
+        type: "listen_start",
+        device_id: deviceId,
+        id: "dakboard",
+        access_token: token
+      }));
+    });
+
+    socket.addEventListener("message", event => {
+      console.log("WebSocket message:", event.data);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "obs_st" && data.obs && data.obs[0]) {
+          const obs = data.obs[0];
+          const temperatureC = obs[7];
+          const windSpeed = obs[2];
+          const pressure = obs[6];
+          const humidity = obs[1];
+
+          displayWeather(temperatureC, windSpeed, humidity, pressure);
+        }
+      } catch (err) {
+        console.error("Error parsing WebSocket message:", err);
+        displayError("Error parsing data.");
+      }
+    });
+
+    socket.addEventListener("error", event => {
+      console.error("WebSocket encountered an error:", event);
+      displayError("WebSocket error (see console).");
+    });
+
+    socket.addEventListener("close", event => {
+      console.warn("WebSocket closed:", event);
+      if (!event.wasClean) {
+        displayError("WebSocket closed unexpectedly.");
+      }
+    });
+  </script>
+</body>
+</html>
